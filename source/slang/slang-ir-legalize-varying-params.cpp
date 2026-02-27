@@ -4845,10 +4845,19 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                     auto varLayoutForKind =
                         fieldVarLayoutBuilder.findOrAddResourceInfo(
                             LayoutResourceKind::VaryingOutput);
-                    auto unusedBinding = (UInt)usedSlots.getLSBZero();
-                    varLayoutForKind->offset = unusedBinding;
+                    UInt location = 0;
+                    if (glslLocationDecor)
+                    {
+                        // Explicit `vk::location` wins over auto-assignment.
+                        location = (UInt)glslLocationDecor->getLocation()->getValue();
+                    }
+                    else
+                    {
+                        location = (UInt)usedSlots.getLSBZero();
+                    }
+                    varLayoutForKind->offset = location;
                     varLayoutForKind->space = 0;
-                    reserveVaryingOutputSlots(usedSlots, unusedBinding, fieldSlotCount);
+                    reserveVaryingOutputSlots(usedSlots, location, fieldSlotCount);
                 }
                 else if (semanticName.startsWithCaseInsensitive(toSlice("sv_")))
                 {
@@ -4875,10 +4884,19 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                     auto varLayoutForKind =
                         fieldVarLayoutBuilder.findOrAddResourceInfo(
                             LayoutResourceKind::VaryingOutput);
-                    auto unusedBinding = (UInt)usedSlots.getLSBZero();
-                    varLayoutForKind->offset = unusedBinding;
+                    UInt location = 0;
+                    if (glslLocationDecor)
+                    {
+                        // Explicit `vk::location` wins over auto-assignment.
+                        location = (UInt)glslLocationDecor->getLocation()->getValue();
+                    }
+                    else
+                    {
+                        location = (UInt)usedSlots.getLSBZero();
+                    }
+                    varLayoutForKind->offset = location;
                     varLayoutForKind->space = 0;
-                    reserveVaryingOutputSlots(usedSlots, unusedBinding, fieldSlotCount);
+                    reserveVaryingOutputSlots(usedSlots, location, fieldSlotCount);
                 }
             }
             else if (glslLocationDecor)
