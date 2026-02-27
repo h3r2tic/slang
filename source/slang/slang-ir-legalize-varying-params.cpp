@@ -4791,6 +4791,30 @@ static void reserveVaryingOutputSlots(UIntSet& usedSlots, UInt offset, UInt coun
         usedSlots.add(offset + ii);
 }
 
+// Find the first free contiguous varying-output range of `count` slots.
+static UInt findContiguousFreeVaryingOutputSlots(UIntSet& usedSlots, UInt count)
+{
+    if (count == 0)
+        return (UInt)usedSlots.getLSBZero();
+
+    UInt candidate = (UInt)usedSlots.getLSBZero();
+    for (;;)
+    {
+        bool overlaps = false;
+        for (UInt ii = 0; ii < count; ++ii)
+        {
+            if (usedSlots.contains(candidate + ii))
+            {
+                overlaps = true;
+                candidate = candidate + ii + 1;
+                break;
+            }
+        }
+        if (!overlaps)
+            return candidate;
+    }
+}
+
 struct EntryPointOuterSemantic
 {
     String name;
@@ -4853,7 +4877,7 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                     }
                     else
                     {
-                        location = (UInt)usedSlots.getLSBZero();
+                        location = findContiguousFreeVaryingOutputSlots(usedSlots, fieldSlotCount);
                     }
                     varLayoutForKind->offset = location;
                     varLayoutForKind->space = 0;
@@ -4892,7 +4916,7 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                     }
                     else
                     {
-                        location = (UInt)usedSlots.getLSBZero();
+                        location = findContiguousFreeVaryingOutputSlots(usedSlots, fieldSlotCount);
                     }
                     varLayoutForKind->offset = location;
                     varLayoutForKind->space = 0;
@@ -4931,7 +4955,8 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                     auto varLayoutForKind =
                         fieldVarLayoutBuilder.findOrAddResourceInfo(
                             LayoutResourceKind::VaryingOutput);
-                    auto unusedBinding = (UInt)usedSlots.getLSBZero();
+                    auto unusedBinding =
+                        findContiguousFreeVaryingOutputSlots(usedSlots, fieldSlotCount);
                     varLayoutForKind->offset = unusedBinding;
                     varLayoutForKind->space = 0;
                     reserveVaryingOutputSlots(usedSlots, unusedBinding, fieldSlotCount);
@@ -4945,7 +4970,8 @@ static IRTypeLayout* createEntryPointResultTypeLayout(
                 auto varLayoutForKind =
                     fieldVarLayoutBuilder.findOrAddResourceInfo(
                         LayoutResourceKind::VaryingOutput);
-                auto unusedBinding = (UInt)usedSlots.getLSBZero();
+                auto unusedBinding =
+                    findContiguousFreeVaryingOutputSlots(usedSlots, fieldSlotCount);
                 varLayoutForKind->offset = unusedBinding;
                 varLayoutForKind->space = 0;
                 reserveVaryingOutputSlots(usedSlots, unusedBinding, fieldSlotCount);
@@ -4985,7 +5011,17 @@ static void collectUsedOutputSlots(IRFunc* entryPoint, UIntSet& usedSlots)
                 continue;
             if (auto offsetAttr = varLayout->findOffsetAttr(LayoutResourceKind::VaryingOutput))
             {
-                usedSlots.add(offsetAttr->getOffset());
+                UInt slotCount = 1;
+                if (auto typeLayout = varLayout->getTypeLayout())
+                {
+                    if (auto sizeAttr = typeLayout->findSizeAttr(LayoutResourceKind::VaryingOutput))
+                    {
+                        auto size = sizeAttr->getSize();
+                        if (size.isFinite())
+                            slotCount = size.getFiniteValue().getValidValue();
+                    }
+                }
+                reserveVaryingOutputSlots(usedSlots, offsetAttr->getOffset(), slotCount);
             }
         }
     }
